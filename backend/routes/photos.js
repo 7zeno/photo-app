@@ -1,3 +1,4 @@
+// backend/routes/photos.js
 const express = require('express');
 const multer = require('multer');
 const cloudinary = require('cloudinary').v2;
@@ -17,7 +18,23 @@ cloudinary.config({
 const storage = multer.memoryStorage();
 const upload = multer({ storage });
 
-// Upload a photo
+// --- NEW PUBLIC ROUTE ---
+// Get all photos for the public gallery. No authentication required.
+router.get('/public', async (req, res) => {
+    try {
+        // Find all photos and sort by the newest ones first.
+        const photos = await Photo.find({}).sort({ createdAt: -1 });
+        res.json(photos);
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server error');
+    }
+});
+
+
+// --- EXISTING ROUTES FOR LOGGED-IN USERS ---
+
+// Upload a photo (requires user to be logged in)
 router.post('/upload', [auth, upload.single('image')], async (req, res) => {
     const { title } = req.body;
     if (!req.file) {
@@ -49,7 +66,7 @@ router.post('/upload', [auth, upload.single('image')], async (req, res) => {
     streamifier.createReadStream(req.file.buffer).pipe(upload_stream);
 });
 
-// Get user's photos
+// Get a specific user's photos (requires user to be logged in)
 router.get('/', auth, async (req, res) => {
     try {
         const photos = await Photo.find({ user: req.user.id }).sort({ createdAt: -1 });
@@ -60,7 +77,7 @@ router.get('/', auth, async (req, res) => {
     }
 });
 
-// Delete a photo
+// Delete a photo (requires user to be the owner)
 router.delete('/:id', auth, async (req, res) => {
     try {
         const photo = await Photo.findById(req.params.id);
